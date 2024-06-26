@@ -70,5 +70,5 @@ This project integrates with the Gmail API to read, categorize, and respond to e
 4. **Run the server:**
 
    ```bash
-   nodemon index.ts
+   npm run dev
    ```   

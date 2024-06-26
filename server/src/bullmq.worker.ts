@@ -1,4 +1,4 @@
-import { Job, Worker } from "bullmq";
+import { Job, Queue, Worker } from "bullmq";
 import { redisConnection } from "./middlewares/redisMiddlewares";
 import axios from "axios";
 import { OpenAI } from "openai";
@@ -146,15 +146,15 @@ const sendMail = async (data: MailData): Promise<void> => {
 
 const parseMail = async (newData: NewMailData): Promise<any> => {
   try {
-    const { from, to } = newData;
+    const { from, to , id} = newData;
     const token = await redisConnection.get(from);
     if (!token) throw new Error("Failed to retrieve token");
 
-    console.log(to);
-    console.log(token);
+    console.log("TO:============= ",to);
+    console.log("TOKEN:=============== ",token);
 
     const msgResponse = await axios.get(
-      `https://gmail.googleapis.com/gmail/v1/users/${from}/messages/${newData.id}`,
+      `https://gmail.googleapis.com/gmail/v1/users/${from}/messages/${id}`,
       {
         headers: {
           "Content-Type": "application/json",
@@ -230,43 +230,35 @@ const parseMail = async (newData: NewMailData): Promise<any> => {
   }
 };
 
-const sendEmailInQueue = (data: NewMailData, jobID: string): Promise<any> =>
-  new Promise(async (resolve, reject) => {
-    try {
-      let msg = await parseMail(data);
-      if (msg) {
-        console.log(`Job ${jobID} completed and sent to ${data.to}`);
-      }
-      resolve(msg);
-    } catch (err) {
-      reject(err);
-    }
-  })
-    .then((res) => console.log(res))
-    .catch((err) => console.error(err));
 
+// Function to send email in queue
+export async function sendEmailInQueue(emailData: {
+  from: string;
+  to: string;
+  id: string;
+}) {
+  const emailQueue = new Queue("email-queue", { connection: redisConnection });
+  await emailQueue.add("process-email", emailData);
+}
+
+// Define the worker to process emails
 const worker = new Worker(
   "email-queue",
-  async (job: Job) => {
-    try {
-      let { from, to, id } = job.data;
-      let jobId = job.id;
-      console.log(job.data);
-      console.log(`Job ${jobId} is started`);
-      setTimeout(async () => {
-        console.log(job.id?.toString() || "undefined-job-id");
-        await sendEmailInQueue(
-          job.data,
-          job.id?.toString() || "undefined-job-id"
-        );
-      }, 3000);
-      console.log("Job in Progress");
-    } catch (err) {
-      console.error("Worker job failed", err);
-    }
+  async (job) => {
+    const { from, to, id } = job.data;
+    parseMail(job.data);
+    console.log(`Processing email from ${from} to ${to} with id ${id}`);
   },
   { connection: redisConnection }
 );
+
+worker.on("completed", (job) => {
+  console.log(`Job ${job.id} completed`);
+});
+
+worker.on("failed", (job: any, err: any) => {
+  console.error(`Job ${job.id} failed with error ${err.message}`);
+});
 
 const sendOutlookEmailInQueue = (
   data: NewMailData,

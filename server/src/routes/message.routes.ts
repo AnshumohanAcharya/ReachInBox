@@ -1,28 +1,36 @@
 import express, { Request, Response } from "express";
 import axios, { AxiosRequestConfig } from "axios";
-import { OAuth2Client } from "google-auth-library";
 import { redisConnection } from "../middlewares/redisMiddlewares";
 import { CatchAsyncError } from "../middlewares/catchAsyncError";
 import { sendMail } from "./googleAuth.routes";
-
-const oAuth2Client = new OAuth2Client({
-  clientId: process.env.GOOGLE_CLIENT_ID as string,
-  clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-  redirectUri: process.env.GOOGLE_REDIRECT_URI as string,
-});
+import { sendEmailInQueue } from "../bullmq.worker";
 
 const messageRouter = express.Router();
 messageRouter.use(express.json());
 
+// messageRouter.post(
+//   "/send-mail",
+//   CatchAsyncError(async (req: Request, res: Response) => {
+//     try {
+//       const data = sendMail(req.body);
+//       res.status(200).json({ msg: "Email Sent Successfully", data });
+//     } catch (err) {
+//       console.error("Error sending email:", err);
+//       res.status(400).json({ error: "Failed to send email" });
+//     }
+//   })
+// );
 messageRouter.post(
   "/send-mail",
   CatchAsyncError(async (req: Request, res: Response) => {
     try {
-      const data = sendMail(req.body);
-      res.status(200).json({ msg: "Email Sent Successfully", data });
+      const { from, to, id } = req.body;
+      await sendEmailInQueue({ from, to, id });
+
+      res.status(200).json({ msg: "Email job enqueued successfully" });
     } catch (err) {
-      console.error("Error sending email:", err);
-      res.status(400).json({ error: "Failed to send email" });
+      console.error("Error enqueuing email job:", err);
+      res.status(400).json({ error: "Failed to enqueue email job" });
     }
   })
 );
@@ -149,7 +157,7 @@ messageRouter.post(
         return res.status(401).send("Access Token not found"); // Assuming 401 Unauthorized status is appropriate
       }
 
-      console.log(accessToken , label);
+      console.log(accessToken, label);
 
       const response = await axios.post(
         `https://gmail.googleapis.com/gmail/v1/users/${email}/labels`,

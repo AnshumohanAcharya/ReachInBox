@@ -1,12 +1,15 @@
 import Redis from "ioredis";
 
 const redisOptions = () => {
-  if (process.env.REDIS_HOST) {
+  if (process.env.REDIS_URL) {
     console.log(`Redis connected!`);
-    return process.env.REDIS_HOST;
+    return process.env.REDIS_URL;
   }
-  throw new Error("Redis Connected Failed");
+  throw new Error("Redis Connection Failed");
 };
 
-const redisConnection = new Redis(redisOptions());
+const redisConnection = new Redis(redisOptions(),{
+  maxRetriesPerRequest: null,
+  enableOfflineQueue: false,
+});
 export { redisConnection };

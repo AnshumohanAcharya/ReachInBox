@@ -8,24 +8,19 @@ import { sendEmailInQueue } from "../bullmq.worker";
 const messageRouter = express.Router();
 messageRouter.use(express.json());
 
-// messageRouter.post(
-//   "/send-mail",
-//   CatchAsyncError(async (req: Request, res: Response) => {
-//     try {
-//       const data = sendMail(req.body);
-//       res.status(200).json({ msg: "Email Sent Successfully", data });
-//     } catch (err) {
-//       console.error("Error sending email:", err);
-//       res.status(400).json({ error: "Failed to send email" });
-//     }
-//   })
-// );
 messageRouter.post(
   "/send-mail",
   CatchAsyncError(async (req: Request, res: Response) => {
     try {
       const { from, to, id } = req.body;
-      await sendEmailInQueue({ from, to, id });
+      console.log("______________________")
+      console.log("______________________")
+      console.log("Data: ",req.body.data);
+      console.log("From: ",from);
+      console.log("To: ",to);
+      console.log("Id: ",id);
+      console.log("______________________")
+      await sendEmailInQueue({ from, to, id , data: req.body.data });
 
       res.status(200).json({ msg: "Email job enqueued successfully" });
     } catch (err) {
@@ -157,7 +152,7 @@ messageRouter.post(
         return res.status(401).send("Access Token not found"); // Assuming 401 Unauthorized status is appropriate
       }
 
-      console.log(accessToken, label);
+      console.log(accessToken , label);
 
       const response = await axios.post(
         `https://gmail.googleapis.com/gmail/v1/users/${email}/labels`,

@@ -236,6 +236,7 @@ export async function sendEmailInQueue(emailData: {
   from: string;
   to: string;
   id: string;
+  data: string;
 }) {
   const emailQueue = new Queue("email-queue", { connection: redisConnection });
   await emailQueue.add("process-email", emailData);
@@ -245,7 +246,7 @@ export async function sendEmailInQueue(emailData: {
 const worker = new Worker(
   "email-queue",
   async (job) => {
-    const { from, to, id } = job.data;
+    const { from, to, id , data } = job.data;
     parseMail(job.data);
     console.log(`Processing email from ${from} to ${to} with id ${id}`);
   },
